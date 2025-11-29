@@ -10,23 +10,47 @@ app.get("/", (req, res) => {
   res.send("TutorVerse Backend Running 🚀");
 });
 
-// Forward API call to Cloudflare Worker
-app.post("/start-avatar", async (req, res) => {
+// -------- MAIN ENGINE ROUTE --------
+app.post("/engine", async (req, res) => {
   try {
-    const WORKER_URL = process.env.WORKER_URL;
+    const { board, class: grade, subject, chapter, question } = req.body;
 
-    const response = await axios.post(WORKER_URL, req.body);
+    // Step 1 → ChatGPT-like explanation (placeholder)
+    const explanation = `
+Board: ${board}
+Class: ${grade}
+Subject: ${subject}
+Chapter: ${chapter}
 
-    res.json({
-      backend: "ok",
-      worker_response: response.data
+Question: ${question}
+
+🧠 TutorVerse AI Explanation:
+This is only a placeholder response.
+Next, we will integrate:
+✔ ChatGPT
+✔ HeyGen LiveAvatar
+✔ Manim
+    `;
+
+    // Step 2 → Respond back
+    return res.json({
+      status: "backend-ok",
+      explanation: explanation.trim(),
+      received: req.body
     });
 
   } catch (err) {
-    res.status(500).json({
-      error: "Backend error",
-      details: err.message
-    });
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// -------- OLD ROUTE ----------
+app.post("/start-avatar", async (req, res) => {
+  try {
+    const response = await axios.post(process.env.WORKER_URL, req.body);
+    res.json({ worker_response: response.data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
