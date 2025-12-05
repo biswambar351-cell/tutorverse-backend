@@ -6,53 +6,93 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// -----------------------------------------
+//  ROOT TEST ROUTE
+// -----------------------------------------
 app.get("/", (req, res) => {
-  res.send("TutorVerse Backend Running 🚀");
+  res.send("TutorVerse Backend Running ✔");
 });
 
-// -------- MAIN ENGINE ROUTE --------
-app.post("/engine", async (req, res) => {
+// -----------------------------------------
+// 1) AVATAR ENGINE ROUTE
+// -----------------------------------------
+app.post("/avatar", async (req, res) => {
   try {
-    const { board, class: grade, subject, chapter, question } = req.body;
+    const WORKER_URL = process.env.WORKER_URL;
 
-    // Step 1 → ChatGPT-like explanation (placeholder)
-    const explanation = `
-Board: ${board}
-Class: ${grade}
-Subject: ${subject}
-Chapter: ${chapter}
+    const response = await axios.post(
+      WORKER_URL + "/avatar",
+      req.body,
+      { headers: { "Content-Type": "application/json" } }
+    );
 
-Question: ${question}
-
-🧠 TutorVerse AI Explanation:
-This is only a placeholder response.
-Next, we will integrate:
-✔ ChatGPT
-✔ HeyGen LiveAvatar
-✔ Manim
-    `;
-
-    // Step 2 → Respond back
     return res.json({
-      status: "backend-ok",
-      explanation: explanation.trim(),
-      received: req.body
+      status: "avatar-engine-ok",
+      worker_response: response.data
     });
 
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({
+      error: "Avatar engine failed",
+      details: err.message
+    });
   }
 });
 
-// -------- OLD ROUTE ----------
-app.post("/start-avatar", async (req, res) => {
+// -----------------------------------------
+// 2) MANIM ENGINE ROUTE
+// -----------------------------------------
+app.post("/manim", async (req, res) => {
   try {
-    const response = await axios.post(process.env.WORKER_URL, req.body);
-    res.json({ worker_response: response.data });
+    const WORKER_URL = process.env.WORKER_URL;
+
+    const response = await axios.post(
+      WORKER_URL + "/manim",
+      req.body,
+      { headers: { "Content-Type": "application/json" } }
+    );
+
+    return res.json({
+      status: "manim-engine-ok",
+      worker_response: response.data
+    });
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({
+      error: "Manim engine failed",
+      details: err.message
+    });
   }
 });
 
+// -----------------------------------------
+// 3) COMBINED ENGINE (Avatar + Manim)
+// -----------------------------------------
+app.post("/engine", async (req, res) => {
+  try {
+    const WORKER_URL = process.env.WORKER_URL;
+
+    const response = await axios.post(
+      WORKER_URL + "/engine",
+      req.body,
+      { headers: { "Content-Type": "application/json" } }
+    );
+
+    return res.json({
+      status: "complete-engine-ok",
+      worker_response: response.data
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      error: "Main engine failed",
+      details: err.message
+    });
+  }
+});
+
+// -----------------------------------------
+// LISTEN PORT
+// -----------------------------------------
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log("Backend running on port " + PORT));
+app.listen(PORT, () => console.log("TutorVerse Backend running on", PORT));
