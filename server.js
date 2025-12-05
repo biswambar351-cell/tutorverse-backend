@@ -93,3 +93,39 @@ app.post("/engine", async (req, res) => {
 app.listen(PORT, () =>
   console.log("Backend running on port " + PORT)
 );
+// -------------------------------
+// HEYGEN AVATAR ENGINE ROUTE
+// -------------------------------
+app.post("/avatar", async (req, res) => {
+  try {
+    const { script } = req.body;
+
+    const response = await axios.post(
+      "https://api.app.liveavatar.com/v1/video/text_to_video",
+      {
+        text: script,
+        avatar_id: "513fd1b7-7ef9-466d-9af2-344e51eeb833",
+        voice_id: "en-US-Emily",
+        resolution: "1080p"
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": process.env.HEYGEN_API_KEY
+        }
+      }
+    );
+
+    res.json({
+      success: true,
+      avatar_video_id: response.data.video_id
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
