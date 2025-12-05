@@ -6,93 +6,90 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// -----------------------------------------
-//  ROOT TEST ROUTE
-// -----------------------------------------
+// ENV variables
+const PORT = process.env.PORT || 8080;
+const WORKER_URL = process.env.WORKER_URL;
+const HEYGEN_KEY = process.env.HEYGEN_KEY;
+
+// -------------------------
+// TEST ROUTE
+// -------------------------
 app.get("/", (req, res) => {
-  res.send("TutorVerse Backend Running ✔");
+  res.send("TutorVerse Backend Running 🚀");
 });
 
-// -----------------------------------------
-// 1) AVATAR ENGINE ROUTE
-// -----------------------------------------
-app.post("/avatar", async (req, res) => {
+// -------------------------
+// 1) START AVATAR ENGINE
+// -------------------------
+app.post("/start-avatar", async (req, res) => {
   try {
-    const WORKER_URL = process.env.WORKER_URL;
+    const { script } = req.body;
 
-    const response = await axios.post(
-      WORKER_URL + "/avatar",
-      req.body,
-      { headers: { "Content-Type": "application/json" } }
+    const heygenResponse = await axios.post(
+      "https://api.heygen.com/v1/video.generate",
+      {
+        video_inputs: [
+          {
+            avatar_id: "513fd1b7-7ef9-466d-9af2-344e51eeb833",
+            input_text: script,
+            voice: {
+              voice_id: "46be4ddf-214c-40a0-972a-2be2d9f90cf39",
+              rate: 1.0
+            }
+          }
+        ]
+      },
+      { headers: { "x-api-key": HEYGEN_KEY } }
     );
 
-    return res.json({
-      status: "avatar-engine-ok",
-      worker_response: response.data
+    res.json({
+      success: true,
+      avatar_job_id: heygenResponse.data.data.video_id
     });
 
   } catch (err) {
-    return res.status(500).json({
-      error: "Avatar engine failed",
-      details: err.message
+    res.json({
+      success: false,
+      error: err.message
     });
   }
 });
 
-// -----------------------------------------
-// 2) MANIM ENGINE ROUTE
-// -----------------------------------------
+// -------------------------
+// 2) MANIM ENGINE
+// -------------------------
 app.post("/manim", async (req, res) => {
   try {
-    const WORKER_URL = process.env.WORKER_URL;
-
-    const response = await axios.post(
-      WORKER_URL + "/manim",
-      req.body,
-      { headers: { "Content-Type": "application/json" } }
-    );
-
-    return res.json({
-      status: "manim-engine-ok",
-      worker_response: response.data
+    const { content } = req.body;
+    // Later you will add your Manim server URL here
+    res.json({
+      status: "manim placeholder",
+      content_received: content
     });
-
   } catch (err) {
-    return res.status(500).json({
-      error: "Manim engine failed",
-      details: err.message
-    });
+    res.json({ error: err.message });
   }
 });
 
-// -----------------------------------------
-// 3) COMBINED ENGINE (Avatar + Manim)
-// -----------------------------------------
+// -------------------------
+// 3) MASTER ENGINE (AI + AVATAR + MANIM)
+// -------------------------
 app.post("/engine", async (req, res) => {
   try {
-    const WORKER_URL = process.env.WORKER_URL;
+    const { board, standard, subject, chapter } = req.body;
 
-    const response = await axios.post(
-      WORKER_URL + "/engine",
-      req.body,
-      { headers: { "Content-Type": "application/json" } }
-    );
-
-    return res.json({
-      status: "complete-engine-ok",
-      worker_response: response.data
+    // Example output for now
+    res.json({
+      engine: "ok",
+      received: { board, standard, subject, chapter }
     });
 
   } catch (err) {
-    return res.status(500).json({
-      error: "Main engine failed",
-      details: err.message
-    });
+    res.json({ error: err.message });
   }
 });
 
-// -----------------------------------------
-// LISTEN PORT
-// -----------------------------------------
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log("TutorVerse Backend running on", PORT));
+// -------------------------
+app.listen(PORT, () =>
+  console.log("Backend running on port " + PORT)
+);
