@@ -1,168 +1,92 @@
-// ---------------------------
-// ENV VARIABLES
-// ---------------------------
+//----------------------------------------------------
+// IMPORTS
+//----------------------------------------------------
 import express from "express";
 import cors from "cors";
 import axios from "axios";
+import OpenAI from "openai";
 
+//----------------------------------------------------
+// APP SETUP
+//----------------------------------------------------
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+//----------------------------------------------------
+// ENV VARIABLES
+//----------------------------------------------------
 const PORT = process.env.PORT || 8080;
-const WORKER_URL = process.env.WORKER_URL;   // Your Cloudflare Worker
-const HEYGEN_API_KEY = process.env.HEYGEN_API_KEY; // Your HeyGen Key
+const WORKER_URL = process.env.WORKER_URL;
+const HEYGEN_API_KEY = process.env.HEYGEN_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// ---------------------------
+//----------------------------------------------------
 // TEST ROUTE
-// ---------------------------
+//----------------------------------------------------
 app.get("/", (req, res) => {
-    res.send("TutorVerse Backend Running 🚀");
+  res.send("TutorVerse Backend Running 🚀");
 });
 
-// ---------------------------
-// 1) START AVATAR ENGINE (HEYGEN)
-// ---------------------------
+//----------------------------------------------------
+// 1) HEYGEN AVATAR ENGINE
+//----------------------------------------------------
 app.post("/start-avatar", async (req, res) => {
-    try {
-        const { text } = req.body;
+  try {
+    const { script } = req.body;
 
-        const response = await axios.post(
-            "https://api.heygen.com/v1/live-avatar/create",
-            {
-                text,
-                avatar_id: "default",
-                voice_id: "en_us_001"
-            },
-            {
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-API-KEY": HEYGEN_API_KEY,
-                }
-            }
-        );
-
-        res.json({
-            status: "avatar-engine-ok",
-            heygen_response: response.data
-        });
-
-    } catch (err) {
-        console.error("HEYGEN ERROR:", err.response?.data || err.message);
-        res.status(500).json({ error: "Avatar Engine Failed" });
+    if (!script) {
+      return res.status(400).json({ error: "Script text required" });
     }
-});
 
-// ---------------------------
-// 2) MANIM ENGINE (OPTIONAL)
-// ---------------------------
-app.post("/manim", async (req, res) => {
-    try {
-        const { board, classLevel, subject, chapter, question } = req.body;
-
-        res.json({
-            status: "manim-ok",
-            message: "Manim animation engine placeholder",
-            received: { board, classLevel, subject, chapter, question }
-        });
-
-    } catch (err) {
-        res.status(500).json({ error: "Manim Engine Failed" });
-    }
-});
-
-// ---------------------------
-// 3) MAIN TUTOR ROUTE (USE WORKER)
-// ---------------------------
-app.post("/lesson", async (req, res) => {
-    try {
-        const response = await axios.post(WORKER_URL + "/lesson", req.body);
-
-        res.json({
-            status: "backend-ok",
-            worker_response: response.data
-        });
-    } catch (err) {
-        res.status(500).json({ error: "Lesson Route Failed" });
-    }
-});
-
-// ---------------------------
-// START BACKEND SERVER
-// ---------------------------
-app.listen(PORT, () => {
-    console.log(`🚀 TutorVerse Backend running on PORT ${PORT}`);
-});
-// ----------------------------------------------
-// 2) AVATAR ENGINE (HeyGen Live Avatar)
-// ----------------------------------------------
-
-app.post("/start-avatar", async (req, res) => {
-    try {
-        const { script } = req.body;
-
-        if (!script) {
-            return res.status(400).json({ error: "script text required" });
+    const response = await axios.post(
+      "https://api.heygen.com/v1/video.generate",
+      {
+        model: "avatar",
+        voice: "en_us_001",
+        input_text: script
+      },
+      {
+        headers: {
+          "X-Api-Key": HEYGEN_API_KEY,
+          "Content-Type": "application/json",
         }
+      }
+    );
 
-        const response = await axios.post(
-            "https://api.heygen.com/v1/video.generate",
-            {
-                model: "avatar",
-                voice: "en_us_001",
-                input_text: script
-            },
-            {
-                headers: {
-                    "X-Api-Key": HEYGEN_API_KEY,
-                    "Content-Type": "application/json"
-                }
-            }
-        );
+    res.json({
+      status: "avatar-ok",
+      heygen_response: response.data
+    });
 
-        res.json({
-            status: "avatar-ok",
-            heygen_response: response.data
-        });
-
-    } catch (err) {
-        console.error("Avatar error:", err.response?.data || err.message);
-        res.status(500).json({
-            error: "Avatar Engine failed",
-            details: err.response?.data || err.message
-        });
-    }
+  } catch (err) {
+    console.error("HEYGEN ERROR:", err.response?.data || err.message);
+    res.status(500).json({ error: "Avatar Engine Failed" });
+  }
 });
-// ----------------------------------------------
-// 3) MANIM ENGINE (Animation Generator)
-// ----------------------------------------------
 
+//----------------------------------------------------
+// 2) MANIM ENGINE (Placeholder)
+//----------------------------------------------------
 app.post("/start-manim", async (req, res) => {
-    try {
-        const { chapter, question } = req.body;
+  try {
+    const { chapter, question } = req.body;
 
-        res.json({
-            status: "manim-ok",
-            message: "Manim animation engine placeholder",
-            received: { chapter, question }
-        });
+    res.json({
+      status: "manim-ok",
+      message: "Manim placeholder working.",
+      received: { chapter, question }
+    });
 
-    } catch (err) {
-        res.status(500).json({
-            error: "Manim Engine failed",
-            details: err.message
-        });
-    }
+  } catch (err) {
+    res.status(500).json({ error: "Manim Engine Failed" });
+  }
 });
-// ---------------------------------------------
-// 2) OPENAI "AI BRAIN" ENGINE
-// ---------------------------------------------
 
-import OpenAI from "openai";
-
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+//----------------------------------------------------
+// 3) OPENAI AI BRAIN ENGINE
+//----------------------------------------------------
+const client = new OpenAI({ apiKey: OPENAI_API_KEY });
 
 app.post("/ask-ai", async (req, res) => {
   try {
@@ -176,7 +100,7 @@ Subject: ${subject}
 Chapter: ${chapter}
 Question: ${question}
 
-Explain the answer in very simple words like a real teacher.
+Explain in very simple words like a real Indian teacher.
 `;
 
     const aiResponse = await client.chat.completions.create({
@@ -197,9 +121,27 @@ Explain the answer in very simple words like a real teacher.
     res.status(500).json({ error: "AI Engine Error" });
   }
 });
-// Server Listener
-app.listen(PORT, () => {
-    console.log("TutorVerse backend running on PORT", PORT);
+
+//----------------------------------------------------
+// 4) LESSON ROUTE → SEND DATA TO WORKER
+//----------------------------------------------------
+app.post("/lesson", async (req, res) => {
+  try {
+    const response = await axios.post(WORKER_URL + "/lesson", req.body);
+
+    res.json({
+      status: "backend-ok",
+      worker_response: response.data
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: "Lesson Route Failed" });
+  }
 });
 
-
+//----------------------------------------------------
+// START BACKEND SERVER
+//----------------------------------------------------
+app.listen(PORT, () => {
+  console.log(`🚀 TutorVerse backend running on PORT ${PORT}`);
+});
