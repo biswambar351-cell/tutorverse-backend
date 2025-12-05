@@ -154,8 +154,52 @@ app.post("/start-manim", async (req, res) => {
         });
     }
 });
+// ---------------------------------------------
+// 2) OPENAI "AI BRAIN" ENGINE
+// ---------------------------------------------
+
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
+app.post("/ask-ai", async (req, res) => {
+  try {
+    const { board, class: className, subject, chapter, question } = req.body;
+
+    const prompt = `
+You are TutorVerse AI.
+Board: ${board}
+Class: ${className}
+Subject: ${subject}
+Chapter: ${chapter}
+Question: ${question}
+
+Explain the answer in very simple words like a real teacher.
+`;
+
+    const aiResponse = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are TutorVerse AI Teacher." },
+        { role: "user", content: prompt }
+      ]
+    });
+
+    res.json({
+      status: "ai-ok",
+      answer: aiResponse.choices[0].message.content
+    });
+
+  } catch (err) {
+    console.error("OPENAI ERROR:", err);
+    res.status(500).json({ error: "AI Engine Error" });
+  }
+});
 // Server Listener
 app.listen(PORT, () => {
     console.log("TutorVerse backend running on PORT", PORT);
 });
+
 
