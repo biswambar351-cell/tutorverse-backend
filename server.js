@@ -93,3 +93,69 @@ app.post("/lesson", async (req, res) => {
 app.listen(PORT, () => {
     console.log(`🚀 TutorVerse Backend running on PORT ${PORT}`);
 });
+// ----------------------------------------------
+// 2) AVATAR ENGINE (HeyGen Live Avatar)
+// ----------------------------------------------
+
+app.post("/start-avatar", async (req, res) => {
+    try {
+        const { script } = req.body;
+
+        if (!script) {
+            return res.status(400).json({ error: "script text required" });
+        }
+
+        const response = await axios.post(
+            "https://api.heygen.com/v1/video.generate",
+            {
+                model: "avatar",
+                voice: "en_us_001",
+                input_text: script
+            },
+            {
+                headers: {
+                    "X-Api-Key": HEYGEN_API_KEY,
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+
+        res.json({
+            status: "avatar-ok",
+            heygen_response: response.data
+        });
+
+    } catch (err) {
+        console.error("Avatar error:", err.response?.data || err.message);
+        res.status(500).json({
+            error: "Avatar Engine failed",
+            details: err.response?.data || err.message
+        });
+    }
+});
+// ----------------------------------------------
+// 3) MANIM ENGINE (Animation Generator)
+// ----------------------------------------------
+
+app.post("/start-manim", async (req, res) => {
+    try {
+        const { chapter, question } = req.body;
+
+        res.json({
+            status: "manim-ok",
+            message: "Manim animation engine placeholder",
+            received: { chapter, question }
+        });
+
+    } catch (err) {
+        res.status(500).json({
+            error: "Manim Engine failed",
+            details: err.message
+        });
+    }
+});
+// Server Listener
+app.listen(PORT, () => {
+    console.log("TutorVerse backend running on PORT", PORT);
+});
+
