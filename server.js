@@ -1,3 +1,4 @@
+const HEYGEN_API_KEY = process.env.HEYGEN_API_KEY;
 import express from "express";
 import cors from "cors";
 import axios from "axios";
@@ -128,4 +129,5 @@ app.post("/avatar", async (req, res) => {
     });
   }
 });
+
 
