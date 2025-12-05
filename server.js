@@ -1,111 +1,69 @@
-// ---------------------------
-// IMPORTS
-// ---------------------------
 import express from "express";
 import cors from "cors";
 import axios from "axios";
 import OpenAI from "openai";
 
-// ---------------------------
+const app = express();
+app.use(cors());
+app.use(express.json());
+
 // ENV VARIABLES
-// ---------------------------
 const PORT = process.env.PORT || 8080;
 const WORKER_URL = process.env.WORKER_URL;
 const HEYGEN_API_KEY = process.env.HEYGEN_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// ---------------------------
-// APP SETUP
-// ---------------------------
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-// ---------------------------
+// ------------------------------
 // TEST ROUTE
-// ---------------------------
+// ------------------------------
 app.get("/", (req, res) => {
-    res.send("TutorVerse Backend Running 🚀");
+    res.send("TutorVerse Backend Running ✔");
 });
 
-// ======================================================
-// 1) HEYGEN AVATAR ENGINE
-// ======================================================
+// ------------------------------
+// 1) START AVATAR ENGINE
+// ------------------------------
 app.post("/start-avatar", async (req, res) => {
     try {
-        const { script } = req.body;
+        const { chapter, question } = req.body;
 
-        if (!script) {
-            return res.status(400).json({ error: "script text missing" });
-        }
-
-        const response = await axios.post(
-            "https://api.heygen.com/v1/video.generate",
-            {
-                model: "avatar",
-                voice: "en_us_001",
-                input_text: script
-            },
-            {
-                headers: {
-                    "X-Api-Key": HEYGEN_API_KEY,
-                    "Content-Type": "application/json"
-                }
-            }
+        const workerResponse = await axios.post(
+            `${WORKER_URL}/avatar`,
+            { chapter, question },
+            { headers: { "Content-Type": "application/json" } }
         );
 
         res.json({
             status: "avatar-ok",
-            heygen_response: response.data
+            result: workerResponse.data
         });
 
     } catch (err) {
-        console.error("HEYGEN ERROR:", err.response?.data || err.message);
+        console.error("Avatar Engine Error:", err.message);
         res.status(500).json({ error: "Avatar Engine Failed" });
     }
 });
 
-// ======================================================
-// 2) MANIM ENGINE PLACEHOLDER
-// ======================================================
-app.post("/start-manim", async (req, res) => {
-    try {
-        const { chapter, question } = req.body;
-
-        res.json({
-            status: "manim-ok",
-            message: "Manim animation placeholder",
-            received: { chapter, question }
-        });
-
-    } catch (err) {
-        res.status(500).json({ error: "Manim Engine Failed" });
-    }
-});
-
-// ======================================================
-// 3) OPENAI — AI BRAIN ENGINE
-// ======================================================
-const openai = new OpenAI({
+// ------------------------------
+// 2) AI BRAIN ENGINE (OpenAI)
+// ------------------------------
+const client = new OpenAI({
     apiKey: OPENAI_API_KEY
 });
 
-app.post("/ask-ai", async (req, res) => {
+app.post("/ai-brain", async (req, res) => {
     try {
-        const { board, class: className, subject, chapter, question } = req.body;
+        const { board, chapter, question } = req.body;
 
         const prompt = `
-You are TutorVerse AI Teacher.
 Board: ${board}
-Class: ${className}
-Subject: ${subject}
 Chapter: ${chapter}
 Question: ${question}
 
-Explain the answer very simply like a human teacher.
-`;
+Explain the answer very simply like a real teacher.
+        `;
 
-        const aiResponse = await openai.chat.completions.create({
+        const aiRes = await client.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
                 { role: "system", content: "You are TutorVerse AI Teacher." },
@@ -115,35 +73,36 @@ Explain the answer very simply like a human teacher.
 
         res.json({
             status: "ai-ok",
-            answer: aiResponse.choices[0].message.content
+            answer: aiRes.choices[0].message.content
         });
 
     } catch (err) {
-        console.error("OPENAI ERROR:", err);
+        console.error("AI Engine Error:", err.message);
         res.status(500).json({ error: "AI Engine Failed" });
     }
 });
 
-// ======================================================
-// 4) USE CLOUDFLARE WORKER FOR /lesson
-// ======================================================
-app.post("/lesson", async (req, res) => {
+// ------------------------------
+// 3) MANIM ENGINE (Placeholder)
+// ------------------------------
+app.post("/start-manim", async (req, res) => {
     try {
-        const response = await axios.post(WORKER_URL + "/lesson", req.body);
+        const { chapter, question } = req.body;
 
         res.json({
-            status: "backend-ok",
-            worker_response: response.data
+            status: "manim-ok",
+            message: "Manim engine placeholder",
+            received: { chapter, question }
         });
 
     } catch (err) {
-        res.status(500).json({ error: "Lesson Route Failed" });
+        res.status(500).json({ error: "Manim Engine Failed" });
     }
 });
 
-// ======================================================
-// START SERVER (ONLY ONE LISTENER!)
-// ======================================================
+// ------------------------------
+// SERVER LISTENER
+// ------------------------------
 app.listen(PORT, () => {
-    console.log(`🚀 TutorVerse Backend running on PORT ${PORT}`);
+    console.log("TutorVerse backend running on PORT", PORT);
 });
