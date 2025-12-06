@@ -1,3 +1,8 @@
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+});
 import express from "express";
 import cors from "cors";
 import OpenAI from "openai";
@@ -105,3 +110,4 @@ app.post("/manim/generate", async (req, res) => {
 // -----------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`TutorVerse backend running on port ${PORT}`));
+
