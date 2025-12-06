@@ -1,99 +1,107 @@
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
-import axios from "axios";
 import OpenAI from "openai";
-
-dotenv.config();
+import fetch from "node-fetch";
 
 const app = express();
-app.use(express.json());
 app.use(cors());
+app.use(express.json());
 
-// ------------ ENV VARIABLES ------------------
-const HEYGEN_API_KEY = process.env.HEYGEN_API_KEY;
+// -----------------------------
+// 🔑 Environment Variables
+// -----------------------------
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const HEYGEN_API_KEY = process.env.HEYGEN_API_KEY;
 
-// OpenAI client
+// -----------------------------
+// 🧠 OpenAI Client
+// -----------------------------
 const openai = new OpenAI({
   apiKey: OPENAI_API_KEY
 });
 
-// ----------- TEST ROUTES ----------------------
+// -----------------------------
+// 📌 Health Check Route
+// -----------------------------
 app.get("/", (req, res) => {
   res.json({ status: "TutorVerse Backend Running" });
 });
 
-// POST test
-app.post("/test", (req, res) => {
-  res.json({ status: "POST working", body: req.body });
-});
-
-// ----------- OPENAI BRAIN ---------------------
-app.post("/brain", async (req, res) => {
+// -----------------------------
+// 🧠 AI Brain (OpenAI)
+// -----------------------------
+app.post("/ai-brain", async (req, res) => {
   try {
-    const { question, board, grade, subject } = req.body;
-
-    const prompt = `
-You are an expert teaching assistant. 
-Explain the topic in simple Indian English.
-Board: ${board}
-Class: ${grade}
-Subject: ${subject}
-Student Question: ${question}
-`;
+    const { board, grade, subject, question } = req.body;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "You are TutorVerse AI Teacher." },
-        { role: "user", content: prompt }
+        {
+          role: "system",
+          content: "You are TutorVerse AI, an expert Indian school tutor. Use textbook style explanation + simple examples."
+        },
+        {
+          role: "user",
+          content: `Board: ${board}, Class: ${grade}, Subject: ${subject}.  
+          Student question: ${question}`
+        }
       ]
     });
 
-    res.json({ answer: response.choices[0].message.content });
+    res.json({
+      answer: response.choices[0].message.content
+    });
+
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "OpenAI error", details: err.message });
+    res.status(500).json({ error: "OpenAI Error" });
   }
 });
 
-// ----------- HEYGEN LIVE AVATAR ENGINE --------
+// -----------------------------
+// 🧑‍🏫 Start HeyGen Avatar
+// -----------------------------
 app.post("/avatar/start", async (req, res) => {
   try {
-    const { text, avatar_id } = req.body;
+    const { script } = req.body;
 
-    const response = await axios.post(
-      "https://api.heygen.com/v1/video.generate",
+    const avatarRequest = await fetch(
+      "https://api.heygen.com/v2/video/generate",
       {
-        avatar_id,
-        text,
-        voice_id: "default"
-      },
-      {
+        method: "POST",
         headers: {
-          "X-Api-Key": HEYGEN_API_KEY,
-          "Content-Type": "application/json"
-        }
+          "Content-Type": "application/json",
+          "X-Api-Key": HEYGEN_API_KEY
+        },
+        body: JSON.stringify({
+          avatar_id: "513fd1b7-7ef9-466d-9af2-344e51eeb833",
+          text: script,
+          voice: "default"
+        })
       }
     );
 
-    res.json({ status: "avatar_started", data: response.data });
+    const data = await avatarRequest.json();
+    res.json({ heygen_response: data });
+
   } catch (err) {
-    console.error(err.response?.data || err);
-    res.status(500).json({ error: "HeyGen error" });
+    console.error(err);
+    res.status(500).json({ error: "HeyGen Error" });
   }
 });
 
-// ----------- MANIM ENGINE ---------------------
-app.post("/manim", async (req, res) => {
-  const { topic } = req.body;
+// -----------------------------
+// ➗ Manim Animation Placeholder
+// -----------------------------
+app.post("/manim/generate", async (req, res) => {
   res.json({
-    status: "Manim simulation",
-    message: `Manim animation for ${topic} will be processed`
+    status: "Manim engine not connected yet — waiting for Cloudflare Worker link"
   });
 });
 
-// ----------- START SERVER ----------------------
+// -----------------------------
+// 🚀 Start Server
+// -----------------------------
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Backend running on ${PORT}`));
+app.listen(PORT, () => console.log(`TutorVerse backend running on port ${PORT}`));
