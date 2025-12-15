@@ -1,157 +1,145 @@
-// ---------------------------
-// TutorVerse Backend (Railway)
-// ---------------------------
 import express from "express";
-import fetch from "node-fetch";
 import cors from "cors";
+import axios from "axios";
+import OpenAI from "openai";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ---------------------------
-// ENVIRONMENT VARIABLES
-// ---------------------------
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
-const LIVEAVATAR_KEY = process.env.LIVEAVATAR_API_KEY;
+// ======================
+// ENV VARIABLES
+// ======================
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const LIVEAVATAR_API_KEY = process.env.LIVEAVATAR_API_KEY;
+const SPEECHIFY_API_KEY = process.env.SPEECHIFY_API_KEY;
 
-// ---------------------------
-// Root Check
-// ---------------------------
+const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
+
+// ======================
+// HEALTH CHECK
+// ======================
 app.get("/", (req, res) => {
-  res.json({ msg: "TutorVerse Backend Running" });
+  res.send("TutorVerse Backend Running 🚀");
 });
 
-// ---------------------------
-// 1) BRAIN ENGINE  (/brain)
-// ---------------------------
+// ======================
+// 1️⃣ BRAIN (OpenAI)
+// ======================
 app.post("/brain", async (req, res) => {
   try {
-    const { board, cls, subject, chapter, question } = req.body;
+    const { question, grade, subject, language = "English" } = req.body;
 
-    const prompt = `
-You are a teacher. Explain to a class ${cls} student.
-Board: ${board}
-Subject: ${subject}
-Chapter: ${chapter}
-Question: ${question}
-Explain clearly in simple language.
-`;
-
-    const payload = {
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-    };
-
-    const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_KEY}`,
-      },
-      body: JSON.stringify(payload),
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are a ${grade} ${subject} teacher. Explain clearly in ${language}.`
+        },
+        {
+          role: "user",
+          content: question
+        }
+      ]
     });
 
-    const aiJson = await aiRes.json();
-
-    return res.json({
-      status: "ai-ok",
-      answer: aiJson.choices?.[0]?.message?.content || "No output",
+    res.json({
+      text: completion.choices[0].message.content
     });
+
   } catch (err) {
-    return res.status(500).json({
-      error: "Brain Engine Error",
-      details: err.message,
+    res.status(500).json({ error: "Brain error", details: err.message });
+  }
+});
+
+// ======================
+// 2️⃣ LIVEAVATAR – CREATE SESSION TOKEN
+// ======================
+app.post("/avatar/token", async (req, res) => {
+  try {
+    const {
+      avatar_id,
+      voice_id,
+      context_id,
+      language = "en"
+    } = req.body;
+
+    const response = await axios.post(
+      "https://api.liveavatar.com/v1/sessions/token",
+      {
+        mode: "FULL",
+        avatar_id,
+        avatar_persona: {
+          voice_id,
+          context_id,
+          language
+        }
+      },
+      {
+        headers: {
+          "X-API-KEY": LIVEAVATAR_API_KEY,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    res.json(response.data);
+
+  } catch (err) {
+    res.status(500).json({
+      error: "Avatar Engine Error",
+      details: err.response?.data || err.message
     });
   }
 });
 
-// ---------------------------
-// 2) MANIM ENGINE  (/manim)
-// ---------------------------
+// ======================
+// 3️⃣ MANIM (PLACEHOLDER)
+// ======================
 app.post("/manim", async (req, res) => {
-  return res.json({
-    status: "manim-ok",
-    message: "Manim placeholder response",
-    received: req.body,
+  const { topic } = req.body;
+
+  // Here you will trigger Manim (Python service / container)
+  // For now, we simulate response
+
+  res.json({
+    status: "Manim job started",
+    topic,
+    video_url: "https://example.com/manim-output.mp4"
   });
 });
 
-// ---------------------------
-// 3) AVATAR ENGINE  (/avatar)
-// ---------------------------
-app.post("/avatar", async (req, res) => {
+// ======================
+// 4️⃣ SPEECHIFY TTS
+// ======================
+app.post("/tts", async (req, res) => {
   try {
-    const { avatar_id, voice_id, context_id, text } = req.body;
+    const { text, voice = "male" } = req.body;
 
-    // STEP 1: Create session token
-    const sessionPayload = {
-      mode: "FULL",
-      avatar_id,
-      avatar_persona: {
-        voice_id,
-        context_id,
-        language: "en",
+    const response = await axios.post(
+      "https://api.sws.speechify.com/v1/audio/speech",
+      {
+        input: text,
+        voice
       },
-    };
-
-    const sessionReq = await fetch(
-      "https://api.liveavatar.com/v1/sessions/token",
       {
-        method: "POST",
         headers: {
-          "X-API-KEY": LIVEAVATAR_KEY,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(sessionPayload),
+          Authorization: `Bearer ${SPEECHIFY_API_KEY}`,
+          "Content-Type": "application/json"
+        }
       }
     );
 
-    const sessionJson = await sessionReq.json();
+    res.json(response.data);
 
-    if (!sessionReq.ok)
-      return res.status(500).json({
-        error: "Avatar Session Error",
-        details: sessionJson,
-      });
-
-    const session_id = sessionJson.data.session_id;
-
-    // STEP 2: Send text message
-    const textReq = await fetch(
-      "https://api.liveavatar.com/v1/sessions/text",
-      {
-        method: "POST",
-        headers: {
-          "X-API-KEY": LIVEAVATAR_KEY,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          session_id,
-          text,
-        }),
-      }
-    );
-
-    const textJson = await textReq.json();
-
-    return res.json({
-      status: "avatar-ok",
-      session_id,
-      response: textJson,
-    });
   } catch (err) {
-    return res.status(500).json({
-      error: "Avatar Engine Error",
-      details: err.message,
-    });
+    res.status(500).json({ error: "Speechify error", details: err.message });
   }
 });
 
-// ---------------------------
-// Start Server
-// ---------------------------
+// ======================
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+app.listen(PORT, () =>
+  console.log("TutorVerse backend running on port", PORT)
+);
